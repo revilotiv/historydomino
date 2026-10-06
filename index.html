@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Történelmi dominó</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{display:flex;flex-direction:column;background:#10243a;color:#fff;font:600 20px/1.15 'Barlow Condensed','Arial Narrow',Arial,sans-serif;user-select:none;-webkit-user-select:none}
+#top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:8px 12px;background:#0a1828;border-bottom:3px solid #ffd23f}
+#top h1{margin:0 8px 0 0;font-size:26px;font-weight:700;color:#ffd23f}
+.pl{padding:3px 14px;border-radius:20px;border:2px solid #4a6a8a}
+.pl.on{background:#ffd23f;color:#0d1b2a;border-color:#ffd23f}
+.b{font:inherit;border:0;border-radius:10px;padding:5px 14px;background:#ff6b6b;color:#fff;cursor:pointer}
+.b.g{background:#2ec4b6}.b.p{background:#7b6cf6}
+.b:disabled{opacity:.35;cursor:default}
+#msg{color:#9ff0e6}
+#board{flex:1;position:relative;overflow:hidden;touch-action:none;cursor:move;background-image:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);background-size:120px 120px}
+#world{position:absolute;left:0;top:0}
+.tile{display:flex;border-radius:14px;overflow:hidden;box-shadow:0 4px 0 rgba(0,0,0,.4)}
+.tile.v{flex-direction:column}
+.cell{width:120px;height:120px;flex:none;border:2px solid #0d1b2a;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;font-size:20px;line-height:1.1;overflow:hidden}
+.cell{color:#0d1b2a;font-weight:700}
+#world .tile{position:absolute}
+#world .last{box-shadow:0 0 0 4px #ffd23f,0 0 24px #ffd23f}
+.pvc{position:absolute;width:120px;height:120px;border-radius:10px}
+.good{background:rgba(80,220,120,.35);outline:3px solid #50dc78}
+.bad{background:rgba(255,80,80,.3);outline:3px solid #ff5050}
+.ghost{position:fixed;z-index:60;pointer-events:none;opacity:.92;transform:scale(1.04);box-shadow:0 12px 24px rgba(0,0,0,.5)}
+#tray{height:276px;flex:none;background:#0a1828;border-top:3px solid #2ec4b6;display:grid;grid-template-rows:repeat(2,120px);grid-auto-flow:column;grid-auto-columns:240px;gap:12px 16px;padding:12px;overflow-x:auto;overflow-y:hidden}
+#tray .tile{flex:none;cursor:grab;touch-action:none}
+#nav{position:absolute;right:14px;bottom:14px;display:grid;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(3,48px);gap:6px;z-index:5}
+#nav button{font:700 22px 'Barlow Condensed',Arial,sans-serif;border:0;border-radius:12px;background:#ffd23f;color:#0d1b2a;cursor:pointer}
+#ov{position:fixed;inset:0;background:rgba(10,24,40,.97);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:100;text-align:center;padding:20px}
+#ov[hidden]{display:none}
+#ov h1{margin:0;font-size:44px;color:#ffd23f}
+#ov p{margin:0;max-width:640px}
+#ov ul{max-width:640px;text-align:left;margin:0;padding-left:22px}
+#ov input{font:inherit;padding:5px 10px;border-radius:8px;border:0;width:200px;text-align:center}
+.hnt{background:rgba(80,230,120,.55);outline:3px solid #50e678;animation:bl .7s ease-in-out infinite alternate;pointer-events:none}@keyframes bl{from{opacity:1}to{opacity:.15}}
+</style></head><body>
+<div id="top"><h1>Történelmi dominó</h1><span class="pl" id="p0"></span><span class="pl" id="p1"></span><span id="st"></span>
+<button class="b g" id="draw">Húzás</button><button class="b p" id="pass">Passz</button><button class="b" id="hint">Tipp</button><button class="b" id="rules">Szabályok</button><button class="b p" id="newg">Új játék</button><span id="msg"></span></div>
+<div id="board"><div id="world"></div>
+</div>
+<div id="tray"></div>
+<div id="ov"></div>
+<script>
+const D=[[0,"Gízai piramisok",0,"fáraó"],[1,"Akropolisz",1,"Zeusz"],[2,"Colosseum",2,"Julius Caesar"],[3,"Szent Korona",3,"Honfoglalás"],[4,"Kolumbusz Kristóf",4,"karavella"],[5,"Egri csillagok",5,"Mohácsi csata"],[6,"Luther Márton",6,"Kálvin János"],
+[0,"hieroglifák",1,"olimpia"],[0,"múmia",2,"gladiátor"],[0,"Nílus",3,"Tatárjárás"],[0,"Anubisz",4,"iránytű"],[0,"papirusz",5,"Buda ostroma"],[0,"Nílus",6,"Kálvin János"],
+[1,"filozófia",2,"légió"],[1,"demokrácia",3,"Visegrádi vár"],[1,"Trójai faló",4,"Újvilág"],[1,"Spárta",5,"janicsár"],[1,"olimpia",6,"Vizsolyi Biblia"],
+[2,"aquaeductus",3,"Aranybulla"],[2,"Forum Romanum",4,"Magellán"],[2,"Pompei",5,"mecset"],[2,"Colosseum",6,"gályarab prédikátorok"],
+[3,"Hunyadi Mátyás",4,"fűszerkereskedelem"],[3,"Fekete Sereg",5,"végvár"],[3,"Szent Korona",6,"debreceni kollégium"],
+[4,"asztrolábium",5,"hódoltság"],[4,"Kolumbusz Kristóf",6,"könyvnyomtatás"],[5,"Egri csillagok",6,"95 tétel"]];
+const N=D.length,$=i=>document.getElementById(i),board=$('board'),world=$('world'),tray=$('tray');
+let S={b:new Map(),pl:[],h:[[],[]],st:[],turn:0,n:['1. játékos','2. játékos'],cover:true,done:true,passes:0},pan={x:0,y:0},dr=null,bd=null;
+const mk=i=>({id:i,a:[D[i][0],D[i][1]],b:[D[i][2],D[i][3]],h:(i*47)%360,o:0});
+function cell(p,txt,h){const d=document.createElement('div');d.className='cell';d.textContent=txt;d.style.background=p=='a'?`hsl(${h} 90% 90%)`:`hsl(${h} 80% 80%)`;return d}
+function tileEl(t,o){const e=document.createElement('div');e.className='tile'+(o%2?' v':'');const a=cell('a',t.a[1],t.h),b=cell('b',t.b[1],t.h);if(o<2)e.append(a,b);else e.append(b,a);return e}
+const cells=(t,x,y,o)=>{const hz=o%2==0;return[[x,y,o<2?'a':'b'],[x+(hz?1:0),y+(hz?0:1),o<2?'b':'a']]};
+const NB=[[1,0],[-1,0],[0,1],[0,-1]];
+function ok(t,x,y,o){const cs=cells(t,x,y,o);let touch=0;
+ for(const[cx,cy]of cs)if(S.b.has(cx+','+cy))return false;
+ for(const[cx,cy,p]of cs){const k=t[p][0];
+  for(const[dx,dy]of NB){const n=S.b.get((cx+dx)+','+(cy+dy));if(n){if(n.k!=k)return false;touch++}}}
+ return S.b.size==0||touch>0}
+function moves(hand,one){if(!S.b.size)return[{x:0,y:0,o:0}];let a=1e9,z=-1e9,c=1e9,d=-1e9;const L=[];
+ for(const k of S.b.keys()){const[x,y]=k.split(',').map(Number);a=Math.min(a,x);z=Math.max(z,x);c=Math.min(c,y);d=Math.max(d,y)}
+ for(const t of hand)for(let o=0;o<4;o++)for(let x=a-2;x<=z+2;x++)for(let y=c-2;y<=d+2;y++)if(ok(t,x,y,o)){L.push({t,x,y,o});if(one)return L}return L}
+const canPlay=h=>moves(h,1).length>0;
+const clearHint=()=>world.querySelectorAll('.hnt').forEach(e=>e.remove());
+function hint(){clearHint();if(S.cover||S.done)return;const L=moves(S.h[S.turn]);if(!L.length)return;
+ const r=board.getBoundingClientRect();let m=L[Math.random()*L.length|0];
+ if(!S.b.size){m={x:Math.round((r.width/2-pan.x)/120-1),y:Math.round((r.height/2-pan.y)/120-.5),o:0}}
+ const cs=cells(null,m.x,m.y,m.o),sx=pan.x+m.x*120+60,sy=pan.y+m.y*120+60;
+ if(sx<0||sy<0||sx>r.width||sy>r.height){pan.x=r.width/2-m.x*120-120;pan.y=r.height/2-m.y*120-60;applyPan()}
+ for(const[cx,cy]of cs){const e=document.createElement('div');e.className='pvc hnt';e.style.left=cx*120+'px';e.style.top=cy*120+'px';world.append(e)}}
+const applyPan=()=>{world.style.transform=`translate(${pan.x}px,${pan.y}px)`;board.style.backgroundPosition=`${pan.x}px ${pan.y}px`};
+const go=(dx,dy)=>{pan.x+=dx;pan.y+=dy;applyPan()};
+function renderBoard(){world.innerHTML='';S.pl.forEach((p,i)=>{const e=tileEl(p.t,p.o);e.style.left=p.x*120+'px';e.style.top=p.y*120+'px';if(i==S.pl.length-1)e.classList.add('last');world.append(e)})}
+function renderHand(){tray.innerHTML='';if(S.cover)return;S.h[S.turn].forEach((t,i)=>{const e=tileEl(t,0);e.dataset.i=i;tray.append(e)})}
+function refresh(){for(let i=0;i<2;i++){const e=$('p'+i);e.textContent=`${S.n[i]}: ${S.h[i].length} lap`;e.classList.toggle('on',S.turn==i)}
+ $('st').textContent=`Húzópakli: ${S.st.length}`;
+ const can=canPlay(S.h[S.turn]);
+ $('draw').disabled=S.cover||S.done||can||!S.st.length;$('pass').disabled=S.cover||S.done||can||S.st.length>0;
+ $('hint').disabled=S.cover||S.done||!can;
+ $('msg').textContent=S.cover||S.done?'':'Húzd a lapot a pályára. Forgatás húzás közben: R, egérgörgő vagy jobb gomb.';
+ renderHand()}
+function ov(html,btn,cb){const o=$('ov');o.innerHTML=html+(btn?`<button class="b g" id="ob">${btn}</button>`:'');o.hidden=false;if(btn)$('ob').onclick=()=>{o.hidden=true;cb&&cb()}}
+function cover(){clearHint();S.cover=true;refresh();const nm=document.createElement('div');nm.textContent=S.n[S.turn];
+ ov(`<h1>${nm.innerHTML} következik</h1><p>Add át az eszközt, majd kattints, hogy lásd a lapjaidat.</p>`,'Mutasd a lapjaimat',()=>{S.cover=false;refresh()})}
+const RULES=`<p>Korszakok: Ókori Egyiptom, Ókori Hellász, Ókori Róma, Középkori Magyarország, Felfedezések kora, Török kori Magyarország, Reformáció.</p><ul><li>28 lap van, mindegyik két korszak-fogalmat tartalmaz. Mindkét játékos 7 lapot kap.</li><li>Húzd a lapot a pályára úgy, hogy az érintkező felek ugyanahhoz a korszakhoz tartozzanak (pl. a gladiátor mellé Julius Caesar vagy Pompei kerülhet). A lapok az oldalukkal is illeszthetők.</li><li>Húzás közben a lap forgatható: R billentyű, egérgörgő, jobb egérgomb vagy második ujj. Zöld előnézet = jó hely, piros = nem illik.</li><li>Ha nincs rakható lapod, húzz, amíg nem tudsz rakni. A Tipp gomb villogó zölddel mutatja, hová rakhatsz.</li><li>A pályát az üres részénél fogva bármerre elhúzhatod (vagy görgethetsz).</li><li>Az nyer, akinek először elfogy az összes lapja.</li></ul>`;
+function start(){const a=$('n0')?.value.trim(),b=$('n1')?.value.trim();S={b:new Map(),pl:[],h:[[],[]],st:[],turn:0,n:[a||'1. játékos',b||'2. játékos'],cover:true,done:false,passes:0};
+ const ids=[...Array(N).keys()];for(let i=N-1;i>0;i--){const j=Math.random()*(i+1)|0;[ids[i],ids[j]]=[ids[j],ids[i]]}
+ const all=ids.map(mk);S.h[0]=all.splice(0,7);S.h[1]=all.splice(0,7);S.st=all;
+ const r=board.getBoundingClientRect();pan={x:r.width/2-120,y:r.height/2-60};applyPan();renderBoard();cover()}
+function finish(txt){S.done=true;refresh();ov(`<h1>🏆 ${txt}</h1>`,'Új játék',()=>menu())}
+function menu(){ov(`<h1>Történelmi dominó</h1>${RULES}<p><input id="n0" placeholder="1. játékos"> <input id="n1" placeholder="2. játékos"></p>`,'Indul a játék',start)}
+function place(t,idx,x,y,o){t.o=o;S.h[S.turn].splice(idx,1);
+ for(const[cx,cy,p]of cells(t,x,y,o))S.b.set(cx+','+cy,{k:t[p][0]});
+ S.pl.push({t,x,y,o});S.passes=0;renderBoard();
+ if(!S.h[S.turn].length){const nm=document.createElement('div');nm.textContent=S.n[S.turn];return finish(nm.innerHTML+' nyert!')}
+ S.turn^=1;cover()}
+$('draw').onclick=()=>{clearHint();if(S.st.length){S.h[S.turn].push(S.st.pop());refresh()}};
+$('pass').onclick=()=>{S.passes++;if(S.passes>=2){const[a,b]=[S.h[0].length,S.h[1].length];return finish(a==b?'Döntetlen!':(a<b?S.n[0]:S.n[1])+' nyert (kevesebb lap)!')}S.turn^=1;cover()};
+$('hint').onclick=hint;
+$('newg').onclick=()=>{if(S.done||confirm('Biztosan új játékot kezdesz?'))menu()};
+$('rules').onclick=()=>{const was=!$('ov').hidden;ov(`<h1>Szabályok</h1>${RULES}`,'Vissza a játékhoz')};
+function rot(){if(!dr||!dr.g)return;dr.t.o=(dr.t.o+1)%4;dr.g.remove();dr.g=ghost();move(dr.last)}
+addEventListener('keydown',e=>{if(e.key.toLowerCase()=='r')rot()});
+addEventListener('contextmenu',e=>{if(dr&&dr.g)e.preventDefault()});
+addEventListener('pointerdown',e=>{if(dr&&dr.g&&e.pointerId!=dr.pid)rot()});
+board.addEventListener('wheel',e=>{e.preventDefault();if(dr&&dr.g)rot();else go(-e.deltaX,-e.deltaY)},{passive:false});
+function ghost(){const g=tileEl(dr.t,dr.t.o);g.classList.add('ghost');document.body.append(g);return g}
+function clearPv(){world.querySelectorAll('.pvc:not(.hnt)').forEach(e=>e.remove())}
+function move(e){dr.last=e;const o=dr.t.o,w=o%2?120:240,h=o%2?240:120;
+ dr.g.style.left=e.clientX-w/2+'px';dr.g.style.top=e.clientY-h/2+'px';
+ const r=board.getBoundingClientRect();clearPv();dr.pos=null;
+ if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;
+ const x=Math.round((e.clientX-r.left-pan.x-w/2)/120),y=Math.round((e.clientY-r.top-pan.y-h/2)/120),g=ok(dr.t,x,y,o);dr.pos={x,y,g};
+ for(const[cx,cy]of cells(dr.t,x,y,o)){const d=document.createElement('div');d.className='pvc '+(g?'good':'bad');d.style.left=cx*120+'px';d.style.top=cy*120+'px';world.append(d)}}
+tray.addEventListener('pointerdown',e=>{const el=e.target.closest('.tile');if(!el||S.cover||S.done)return;e.preventDefault();const i=+el.dataset.i;dr={t:S.h[S.turn][i],i,sx:e.clientX,sy:e.clientY,g:null,pid:e.pointerId};dr.t.o=0});
+board.addEventListener('pointerdown',e=>{if(e.target.closest('#nav'))return;bd={x:e.clientX-pan.x,y:e.clientY-pan.y}});
+addEventListener('pointermove',e=>{if(dr){if(!dr.g){if(Math.hypot(e.clientX-dr.sx,e.clientY-dr.sy)<8)return;dr.g=ghost()}move(e)}else if(bd){pan.x=e.clientX-bd.x;pan.y=e.clientY-bd.y;applyPan()}});
+addEventListener('pointerup',()=>{bd=null;if(!dr)return;const d=dr;dr=null;
+ if(!d.g)return;
+ d.g.remove();clearPv();if(d.pos&&d.pos.g)place(d.t,d.i,d.pos.x,d.pos.y,d.t.o);else d.t.o=0});
+menu();
+</script></body></html>
